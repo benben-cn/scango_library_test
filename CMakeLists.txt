@@ -9,6 +9,7 @@ else()
     add_compile_options(-finput-charset=UTF-8 -fexec-charset=UTF-8)
 endif()
 
+link_directories(${PROJECT_SOURCE_DIR}/lib)
 add_executable(Scango_Dll_Test scangodll_test.cpp)
 set_target_properties(Scango_Dll_Test PROPERTIES 
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin
@@ -17,4 +18,5 @@ set_target_properties(Scango_Dll_Test PROPERTIES
 # 包含 DLL 的头文件目录
 include_directories(${PROJECT_SOURCE_DIR}/include)
 # 链接到 DLL 的导入库
-target_link_libraries(Scango_Dll_Test PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+#target_link_libraries(Scango_Dll_Test PUBLIC ${PROJECT_SOURCE_DIR}/lib)
+target_link_libraries(Scango_Dll_Test PUBLIC libSCANGO_Dll.dylib)
