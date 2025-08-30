@@ -29,6 +29,7 @@ using namespace std;
 #define PORT_UP 65535
 #endif
 
+#ifdef _MSC_VER
 //获取udp所有的空闲端口
 std::vector<WORD> GetAllUdpConnectionsPort()
 {
@@ -54,6 +55,7 @@ WORD FindAvailableUdpPort(WORD begin = PORT_DOWN, WORD end = PORT_UP)
             return port;
     return 0;
 }
+#endif
 
 //获取MAC地址
 bool GetMacByGetAdaptersInfo(std::string& macOUT) {
@@ -276,7 +278,11 @@ void myonCRMRecv(char* cjson) {
 //通过模块id获取文件保存路径 返回值：文件保存的路径，modId：自定义模块id
 char* mynewTempFile(WORD modid) {
     char* tempdfile = (char*)malloc(256 * sizeof(char));
+    #ifdef _MSC_VER
     sprintf_s(tempdfile, 256, "c:/users/zhedao/desktop/%d/index.db", modid);
+    #else
+    snprintf(tempdfile, 256, "c:/users/zhedao/desktop/%d/index.db", modid);
+    #endif
     return tempdfile;
 }
 
@@ -307,7 +313,7 @@ int main() {
 
     while (1) {
         int a;
-        scanf_s("%d", &a, sizeof(a));
+        cin >> a;
         switch (a)
         {
         case 1:
@@ -330,6 +336,6 @@ int main() {
         }
     }
 
-    system("pause");
+    //system("pause");
     return 0;
 }
