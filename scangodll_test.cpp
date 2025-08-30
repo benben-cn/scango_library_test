@@ -5,23 +5,29 @@
 #include "dcf_cmdid.h"
 #include "dcf_i_rcc_dth.h"
 
-#include <Windows.h>
-#include <WinSock.h>
-#include <tcpmib.h>
-#include <IPHlpApi.h>
 #include <vector>
 #include <algorithm>
 #include <fstream>
 
+#ifdef _MSC_VER
+#include <WinSock2.h>
+#include <tcpmib.h>
+#include <IPHlpApi.h>
+#else
+#include <sys/socket.h>
+#include <ifaddrs.h>
+#include <net/if_dl.h>
+#endif
+
 using namespace std;
 
+#ifdef _MSC_VER
 #pragma comment(lib, "WS2_32.lib")
 #pragma comment(lib, "IPHlpApi.lib")
 
 #define PORT_DOWN 49152
 #define PORT_UP 65535
-
-
+#endif
 
 //获取udp所有的空闲端口
 std::vector<WORD> GetAllUdpConnectionsPort()
@@ -51,47 +57,77 @@ WORD FindAvailableUdpPort(WORD begin = PORT_DOWN, WORD end = PORT_UP)
 
 //获取MAC地址
 bool GetMacByGetAdaptersInfo(std::string& macOUT) {
-    bool ret = false;
-    ULONG ulOutBufLen = sizeof(IP_ADAPTER_INFO);
-    PIP_ADAPTER_INFO pAdapterInfo = (IP_ADAPTER_INFO*)malloc(sizeof(IP_ADAPTER_INFO));
-    if (pAdapterInfo == NULL)
-        return false;
-
-    if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW) {
-        free(pAdapterInfo);
-        pAdapterInfo = (IP_ADAPTER_INFO*)malloc(ulOutBufLen);
+    #ifdef _MSC_VER
+        bool ret = false;
+        ULONG ulOutBufLen = sizeof(IP_ADAPTER_INFO);
+        PIP_ADAPTER_INFO pAdapterInfo = (IP_ADAPTER_INFO*)malloc(sizeof(IP_ADAPTER_INFO));
         if (pAdapterInfo == NULL)
             return false;
-    }
 
-    if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == NO_ERROR) {
-        for (PIP_ADAPTER_INFO pAdapter = pAdapterInfo; pAdapter != NULL; pAdapter = pAdapter->Next) {
-            if (pAdapter->Type != MIB_IF_TYPE_ETHERNET)
-                continue;
-            if (pAdapter->AddressLength != 6)
+        if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == ERROR_BUFFER_OVERFLOW) {
+            free(pAdapterInfo);
+            pAdapterInfo = (IP_ADAPTER_INFO*)malloc(ulOutBufLen);
+            if (pAdapterInfo == NULL)
+                return false;
+        }
+
+        if (GetAdaptersInfo(pAdapterInfo, &ulOutBufLen) == NO_ERROR) {
+            for (PIP_ADAPTER_INFO pAdapter = pAdapterInfo; pAdapter != NULL; pAdapter = pAdapter->Next) {
+                if (pAdapter->Type != MIB_IF_TYPE_ETHERNET)
+                    continue;
+                if (pAdapter->AddressLength != 6)
+                    continue;
+
+                char acMAC[32];
+                sprintf_s(acMAC, sizeof(acMAC), "%02X%02X%02X%02X%02X%02X",
+                    int(pAdapter->Address[0]),
+                    int(pAdapter->Address[1]),
+                    int(pAdapter->Address[2]),
+                    int(pAdapter->Address[3]),
+                    int(pAdapter->Address[4]),
+                    int(pAdapter->Address[5]));
+                macOUT = acMAC;
+                ret = true;
+                break;
+            }
+        }
+        free(pAdapterInfo);
+        return ret;
+    #else
+        struct ifaddrs *ifaddr, *ifa;
+
+        if (getifaddrs(&ifaddr) == -1) {
+            perror("getifaddrs");
+            return false;
+        }
+
+        for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
+            if (ifa->ifa_addr == nullptr || ifa->ifa_addr->sa_family != AF_LINK)
                 continue;
 
-            char acMAC[32];
-            sprintf_s(acMAC, sizeof(acMAC), "%02X%02X%02X%02X%02X%02X",
-                int(pAdapter->Address[0]),
-                int(pAdapter->Address[1]),
-                int(pAdapter->Address[2]),
-                int(pAdapter->Address[3]),
-                int(pAdapter->Address[4]),
-                int(pAdapter->Address[5]));
-            macOUT = acMAC;
-            ret = true;
+            struct sockaddr_dl* sdl = (struct sockaddr_dl*)ifa->ifa_addr;
+            unsigned char* mac = (unsigned char*)LLADDR(sdl);
+
+            char buffer[18];
+            snprintf(buffer, sizeof(buffer), "%02X:%02X:%02X:%02X:%02X:%02X",
+                    mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            macOUT = buffer;
             break;
         }
-    }
-    free(pAdapterInfo);
-    return ret;
+
+        freeifaddrs(ifaddr);
+        return true;
+    #endif
 }
 
 //登入入口
 void login() {
     string Ip = "192.168.5.128"; //服务器IP地址
+    #ifdef _MSC_VER
     WORD recv_port = FindAvailableUdpPort(); //空闲udp端口
+    #else
+    WORD recv_port = 50000; //空闲udp端口
+    #endif
     string recv_addr = "0.0.0.0:" + to_string(recv_port);
     string gateway_addr = Ip + ":4021";
     cout << gateway_addr << "," << recv_addr << endl;
