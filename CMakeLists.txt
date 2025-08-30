@@ -17,4 +17,4 @@ set_target_properties(Scango_Dll_Test PROPERTIES
 # 包含 DLL 的头文件目录
 include_directories(${PROJECT_SOURCE_DIR}/include)
 # 链接到 DLL 的导入库
-target_link_libraries(Scango_Dll_Test PRIVATE ${PROJECT_SOURCE_DIR}/lib)
+target_link_libraries(Scango_Dll_Test PUBLIC ${PROJECT_SOURCE_DIR}/lib)
